@@ -19,7 +19,9 @@ npm run dev
 ブラウザで `http://localhost:5173` にアクセスしてください。
 
 ### モック API の利用
-バックエンドが無い場合でも、デモ用モック API で動作できます。
+バックエンドが無い状態で起動すると、デフォルトで `http://localhost:3000/api` へ接続しに行くため、
+ログイン時に "Failed to fetch" と表示されます。バックエンドを起動するか、モック API を利用してくださ
+い。
 `VITE_USE_MOCK_API=true` を設定すると、以下のデモアカウントでログインできます。
 - ユーザID: `demo`
 - パスワード: `password`
@@ -33,6 +35,12 @@ VITE_USE_MOCK_API=true npm run dev
 npm run build
 npm run preview
 ```
+
+
+## APIリファレンス
+バックエンドAPI仕様は以下を参照してください。
+
+- [docs/API_REFERENCE.md](./docs/API_REFERENCE.md)
 
 ## 機能概要
 - ログイン画面

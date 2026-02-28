@@ -1,4 +1,4 @@
-import { LoginRequest, LoginResponse, TodoItem } from '../types';
+import { ApiError, LoginRequest, LoginResponse, TodoItem } from '../types';
 
 interface ApiClient {
   login(payload: LoginRequest): Promise<LoginResponse>;
@@ -11,21 +11,55 @@ interface ApiClient {
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
 const useMockApi = import.meta.env.VITE_USE_MOCK_API === 'true';
 
+const isSessionTimeout = (status: number, message: string) => {
+  const normalizedMessage = message.toLowerCase();
+  return (
+    status === 440 ||
+    (status === 401 && normalizedMessage.includes('session')) ||
+    normalizedMessage.includes('session timeout')
+  );
+};
+
 async function request<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {})
-    },
-    ...init
-  });
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers ?? {})
+      },
+      ...init
+    });
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    if (!response.ok) {
+      const message = (await response.text()) || `Request failed: ${response.status}`;
+
+      if (isSessionTimeout(response.status, message)) {
+        throw new ApiError('session_timeout', 'セッションの有効期限が切れました。再度ログインしてください。', response.status);
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        throw new ApiError('auth', message || 'ユーザIDまたはパスワードが正しくありません', response.status);
+      }
+
+      throw new ApiError('unexpected', message || 'サーバーで想定外のエラーが発生しました。', response.status);
+    }
+
+    return response.json() as Promise<T>;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // fetch が通信に失敗した場合、TypeError が発生するため、よりわかりやすい文言で伝える
+    if (error instanceof TypeError) {
+      throw new ApiError(
+        'unexpected',
+        'API サーバーに接続できません。バックエンドが起動しているか、VITE_API_BASE_URL の指定を確認してください。'
+      );
+    }
+
+    throw new ApiError('unexpected', 'リクエストの実行中に不明なエラーが発生しました。');
   }
-
-  return response.json() as Promise<T>;
 }
 
 // Fallback mock client useful for local development without a backend
@@ -39,7 +73,7 @@ class MockApiClient implements ApiClient {
     if (payload.userId === 'demo' && payload.password === 'password') {
       return { token: 'mock-token', userId: payload.userId };
     }
-    throw new Error('ユーザIDまたはパスワードが正しくありません');
+    throw new ApiError('auth', 'ユーザIDまたはパスワードが正しくありません');
   }
 
   async fetchTodos(): Promise<TodoItem[]> {

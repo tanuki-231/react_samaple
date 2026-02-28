@@ -16,3 +16,16 @@ export interface LoginResponse {
   token: string;
   userId: string;
 }
+
+export type ApiErrorKind = 'auth' | 'session_timeout' | 'unexpected';
+
+export class ApiError extends Error {
+  constructor(
+    public readonly kind: ApiErrorKind,
+    message: string,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}

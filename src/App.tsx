@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import LoginForm from './components/LoginForm';
 import TodoDashboard from './components/TodoDashboard';
-import { TodoItem } from './types';
+import ErrorScreen from './components/ErrorScreen';
+import SessionTimeoutScreen from './components/SessionTimeoutScreen';
+import { ApiError, TodoItem } from './types';
 import api from './services/api';
 
 interface AuthState {
@@ -9,9 +11,35 @@ interface AuthState {
   userId: string;
 }
 
+type AppScreen = 'default' | 'error' | 'session-timeout';
+
 const App = () => {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [screen, setScreen] = useState<AppScreen>('default');
+  const [globalErrorMessage, setGlobalErrorMessage] = useState('想定外のエラーが発生しました。');
+
+  const showLogin = () => {
+    setAuth(null);
+    setTodos([]);
+    setScreen('default');
+    setGlobalErrorMessage('想定外のエラーが発生しました。');
+  };
+
+  const handleFatalError = (error: unknown) => {
+    if (error instanceof ApiError && error.kind === 'session_timeout') {
+      setAuth(null);
+      setTodos([]);
+      setScreen('session-timeout');
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : '想定外のエラーが発生しました。';
+    setAuth(null);
+    setTodos([]);
+    setGlobalErrorMessage(message);
+    setScreen('error');
+  };
 
   const handleLogin = async (userId: string, password: string) => {
     try {
@@ -20,11 +48,11 @@ const App = () => {
       const loadedTodos = await api.fetchTodos(result.token);
       setTodos(loadedTodos);
     } catch (error) {
-      // rethrow for the form to display an error
-      if (error instanceof Error) {
+      // ログイン失敗（ID/パスワード不正）はログイン画面でメッセージ表示する
+      if (error instanceof ApiError && error.kind === 'auth') {
         throw error;
       }
-      throw new Error('ログイン処理で不明なエラーが発生しました');
+      handleFatalError(error);
     }
   };
 
@@ -35,20 +63,32 @@ const App = () => {
 
   const handleAddTodo = async (todo: Omit<TodoItem, 'id'>) => {
     if (!auth) return;
-    const created = await api.addTodo(auth.token, todo);
-    setTodos((current) => [...current, created]);
+    try {
+      const created = await api.addTodo(auth.token, todo);
+      setTodos((current) => [...current, created]);
+    } catch (error) {
+      handleFatalError(error);
+    }
   };
 
   const handleUpdateTodo = async (todo: TodoItem) => {
     if (!auth) return;
-    const updated = await api.updateTodo(auth.token, todo);
-    setTodos((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    try {
+      const updated = await api.updateTodo(auth.token, todo);
+      setTodos((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (error) {
+      handleFatalError(error);
+    }
   };
 
   const handleDeleteTodo = async (id: string) => {
     if (!auth) return;
-    await api.deleteTodo(auth.token, id);
-    setTodos((current) => current.filter((item) => item.id !== id));
+    try {
+      await api.deleteTodo(auth.token, id);
+      setTodos((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      handleFatalError(error);
+    }
   };
 
   return (
@@ -62,16 +102,19 @@ const App = () => {
         )}
       </header>
 
-      {!auth ? (
-        <LoginForm onLogin={handleLogin} />
-      ) : (
-        <TodoDashboard
-          todos={todos}
-          onAddTodo={handleAddTodo}
-          onUpdateTodo={handleUpdateTodo}
-          onDeleteTodo={handleDeleteTodo}
-        />
-      )}
+      {screen === 'error' && <ErrorScreen message={globalErrorMessage} onBackToLogin={showLogin} />}
+      {screen === 'session-timeout' && <SessionTimeoutScreen onBackToLogin={showLogin} />}
+      {screen === 'default' &&
+        (!auth ? (
+          <LoginForm onLogin={handleLogin} />
+        ) : (
+          <TodoDashboard
+            todos={todos}
+            onAddTodo={handleAddTodo}
+            onUpdateTodo={handleUpdateTodo}
+            onDeleteTodo={handleDeleteTodo}
+          />
+        ))}
     </div>
   );
 };
