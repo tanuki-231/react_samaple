@@ -1,10 +1,20 @@
 export type TodoStatus = 'pending' | 'in_progress' | 'done';
 
+export interface TodoAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+}
+
 export interface TodoItem {
   id: string;
   title: string;
   description?: string;
   status: TodoStatus;
+  attachmentCount?: number;
+  attachments?: TodoAttachment[];
 }
 
 export interface LoginRequest {

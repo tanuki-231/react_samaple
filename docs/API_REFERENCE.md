@@ -7,6 +7,7 @@
 - 環境変数で上書き: `VITE_API_BASE_URL`
 - 認証方式: Bearer Token（`Authorization: Bearer <token>`）
 - Content-Type: `application/json`
+- 添付ファイルは JSON ボディ内の `attachments` 配列で送信（`multipart/form-data` は未使用）
 
 ---
 
@@ -15,6 +16,12 @@
 ### リクエストヘッダー
 - `Content-Type: application/json`
 - 認証が必要なAPIでは `Authorization: Bearer <token>`
+
+### 添付ファイル仕様
+- 添付は任意（添付なし可）
+- 1TODO あたり最大 `3` ファイル
+- 1ファイルあたり最大 `1MB`
+- 各ファイルは `attachments` 配列の要素として、ファイル名・サイズ・MIME type・`dataUrl` を含めて送信
 
 ### エラーハンドリング方針（フロント側）
 フロントエンドではAPIエラーを以下の3種類に分類して扱います。
@@ -74,10 +81,13 @@
     "id": "string",
     "title": "string",
     "description": "string",
-    "status": "pending"
+    "status": "pending",
+    "attachmentCount": 1
   }
 ]
 ```
+
+- `GET /todos` では添付ファイル本体は返さず、添付有無の判定に必要な `attachmentCount` のみ返却
 
 ### `status` の値
 - `pending`
@@ -104,7 +114,16 @@
 {
   "title": "string",
   "description": "string",
-  "status": "pending"
+  "status": "pending",
+  "attachments": [
+    {
+      "id": "string",
+      "name": "sample.pdf",
+      "size": 12345,
+      "type": "application/pdf",
+      "dataUrl": "data:application/pdf;base64,..."
+    }
+  ]
 }
 ```
 
@@ -114,7 +133,16 @@
   "id": "string",
   "title": "string",
   "description": "string",
-  "status": "pending"
+  "status": "pending",
+  "attachments": [
+    {
+      "id": "string",
+      "name": "sample.pdf",
+      "size": 12345,
+      "type": "application/pdf",
+      "dataUrl": "data:application/pdf;base64,..."
+    }
+  ]
 }
 ```
 
@@ -143,7 +171,16 @@
   "id": "string",
   "title": "string",
   "description": "string",
-  "status": "in_progress"
+  "status": "in_progress",
+  "attachments": [
+    {
+      "id": "string",
+      "name": "sample.pdf",
+      "size": 12345,
+      "type": "application/pdf",
+      "dataUrl": "data:application/pdf;base64,..."
+    }
+  ]
 }
 ```
 
@@ -153,7 +190,16 @@
   "id": "string",
   "title": "string",
   "description": "string",
-  "status": "in_progress"
+  "status": "in_progress",
+  "attachments": [
+    {
+      "id": "string",
+      "name": "sample.pdf",
+      "size": 12345,
+      "type": "application/pdf",
+      "dataUrl": "data:application/pdf;base64,..."
+    }
+  ]
 }
 ```
 
@@ -195,6 +241,7 @@
   - password: `password`
 - TODO初期データが2件投入済み
 - 追加・更新・削除はメモリ上で処理（再起動でリセット）
+- 添付ファイルもメモリ上に保持
 
 ---
 
@@ -218,6 +265,14 @@ interface LoginResponse {
 
 ### TodoItem
 ```ts
+interface TodoAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+}
+
 type TodoStatus = 'pending' | 'in_progress' | 'done';
 
 interface TodoItem {
@@ -225,5 +280,7 @@ interface TodoItem {
   title: string;
   description?: string;
   status: TodoStatus;
+  attachmentCount?: number;
+  attachments?: TodoAttachment[];
 }
 ```

@@ -173,6 +173,29 @@ button.danger:hover {
   margin-top: 8px;
 }
 
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.attachment-empty,
+.attachment-meta {
+  color: #6b7280;
+  font-size: 14px;
+}
+
 .status-screen {
   display: flex;
   flex-direction: column;

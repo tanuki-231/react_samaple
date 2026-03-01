@@ -22,12 +22,14 @@ const isSessionTimeout = (status: number, message: string) => {
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   try {
+    const headers = new Headers(init.headers);
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
     const response = await fetch(`${API_BASE}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {})
-      },
-      ...init
+      ...init,
+      headers
     });
 
     if (!response.ok) {
@@ -44,7 +46,16 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       throw new ApiError('unexpected', message || 'サーバーで想定外のエラーが発生しました。', response.status);
     }
 
-    return response.json() as Promise<T>;
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+
+    return JSON.parse(text) as T;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
